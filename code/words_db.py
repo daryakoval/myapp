@@ -1,45 +1,29 @@
-from typing import Set
-import itertools
-from collections import Counter
-from constans import CACHE_HIT, CACHE_MISS, CACHE_HEADER
-from flask import Response, g, Request
-from flask_caching import Cache
+from collections import Counter, defaultdict
+from typing import Set, List
 
 
 class WordsDatabase:
     def __init__(self, path: str, logger):
-        self.words_set = self._load_txt(path=path)
+        self.words_db, self.words_set = self._load_db(path=path)
         self.logger = logger
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.words_set)
 
-    def __iter__(self):
-        return self.words_set
-
     @staticmethod
-    def _load_txt(path: str) -> Set[str]:
+    def _load_db(path: str) -> tuple[defaultdict[str, List[str]], Set[str]]:
         with open(path, 'r') as f:
             words_set = set(f.read().splitlines())
-        return words_set
+        db = defaultdict(lambda: [])
+        for word in words_set:
+            count_str = ''.join(f'{letter}{count}' for letter, count in sorted(Counter(word).items()))
+            db[count_str].append(word)
+        return db, words_set
 
-    def get_similar_words(self, word: str, cache: Cache):
-        """Get similar words from the database, try get from cache if not present get from the db"""
-        g.count_str = ''.join(f'{letter}{count}' for letter, count in sorted(Counter(word).items()))
-
-        if similar_words := cache.get(g.count_str):
-            similar_words.remove(word)
-            return similar_words, CACHE_HIT
-        else:
-            perms = set(''.join(p) for p in itertools.permutations(word))
-            similar_words = sorted(w for w in perms if w in self.words_set and w != word)
-            return similar_words, CACHE_MISS
-
-    def update_similar_cache(self, current_request: Request, response: Response, cache: Cache):
-        """ Updates the cache for similar words search """
-        if not int(response.headers[CACHE_HEADER]):
-            word = current_request.args.get('word', '').lower()
-            similar_words = response.json.get('similar', [])
-            similar_words.append(word)
-            cache.set(g.count_str, similar_words, timeout=180)
-            self.logger.info(f'Updated cache for: {g.count_str}, {similar_words=}.')
+    def get_similar_words(self, word: str) -> List[str]:
+        """Get similar words from the database"""
+        count_str = ''.join(f'{letter}{count}' for letter, count in sorted(Counter(word).items()))
+        all_similar_words = self.words_db.get(count_str, [])
+        self.logger.debug(f'Word: [{word}]. All similar words are {all_similar_words}.')
+        similar_words = list(filter(lambda e: e != word, all_similar_words))
+        return similar_words

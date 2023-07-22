@@ -3,13 +3,13 @@ from flask_caching import Cache
 import time
 import redis
 import logging
-from constans import CACHE_HEADER, HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND, \
+from code.constans import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND, \
     CACHE_TYPE, CACHE_REDIS_URL, REDIS_PORT, WORDS_CLEAN_PATH, HOST
-from words_db import WordsDatabase
-from utils import update_statistics, get_statistics
+from code.words_db import WordsDatabase
+from code.utils import update_statistics, get_statistics
 
 app = Flask(__name__)
-app.logger.setLevel(logging.INFO)
+app.logger.setLevel(logging.DEBUG)
 app.config['CACHE_TYPE'] = CACHE_TYPE
 app.config['CACHE_REDIS_URL'] = CACHE_REDIS_URL
 
@@ -25,40 +25,32 @@ redis_client.set('total_processing_time_key', 0)
 @app.after_request
 def after_request_tasks(response):
     """ Update Statistics and Cache """
-    current_request = request
     if request.endpoint == 'get_similar':
         update_statistics(redis_client=redis_client, logger=app.logger)
-        words_database.update_similar_cache(current_request=current_request, response=response,
-                                            cache=cache)
-
     return response
 
 
 @app.route('/api/v1/similar', methods=['GET'])
-@cache.memoize(timeout=60)
+# @cache.memoize(timeout=60)
 def get_similar() -> Response:
     """ Returns similar words to the given word"""
-    headers = {}
+    start_time = time.time()
     word = request.args.get('word', '').lower()
 
     if not word or not word.isalpha():
         return make_response(jsonify({"error": "Invalid word. Please provide a valid alphabetic word."}),
                              HTTP_400_BAD_REQUEST)
 
-    # TODO: change
-    start_time = time.time()
+    similar_words = words_database.get_similar_words(word)
 
-    similar_words, cache_val = words_database.get_similar_words(word, cache)
-
-    headers[CACHE_HEADER] = cache_val
     g.process_time = int((time.time() - start_time) * 1e9)
-    return make_response(jsonify({"similar": similar_words}), HTTP_200_OK, headers)
+    return make_response(jsonify({"similar": similar_words}), HTTP_200_OK)
 
 
 @app.route('/api/v1/stats', methods=['GET'])
 def get_stats() -> Response:
     """ Returns statistics - total requests and average processing time"""
-    total_requests, avg_processing_time_ns = get_statistics(redis_client)
+    total_requests, avg_processing_time_ns = get_statistics(redis_client=redis_client, logger=app.logger)
 
     return make_response(
         jsonify({

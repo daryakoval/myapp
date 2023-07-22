@@ -1,5 +1,5 @@
 # ======== PATHS ========
-WORDS_CLEAN_PATH = '../words_clean.txt'
+WORDS_CLEAN_PATH = 'words_clean.txt'
 HOST = 'localhost'
 
 # ======== RETURN CODES ========
@@ -9,10 +9,6 @@ HTTP_401_UNAUTHORIZED = 401
 HTTP_404_NOT_FOUND = 404
 
 # ======== CACHE & REDIS RELATED ========
-CACHE_HEADER = 'X-Cache'
-CACHE_HIT = 1
-CACHE_MISS = 0
-
 CACHE_TYPE = 'redis'
 REDIS_PORT = 6379
 CACHE_REDIS_URL = f'redis://localhost:{REDIS_PORT}/0'
