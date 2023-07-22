@@ -1,5 +1,3 @@
-import functools
-from typing import List, Callable
 from flask import Flask, request, jsonify, make_response, Response, g
 from flask_caching import Cache
 import itertools
@@ -11,10 +9,8 @@ from collections import Counter
 
 app = Flask(__name__)
 app.logger.setLevel(logging.INFO)
-# cache = Cache(app, config={'CACHE_TYPE': 'simple'})
-# Configure Redis as the caching backend
 app.config['CACHE_TYPE'] = 'redis'
-app.config['CACHE_REDIS_URL'] = 'redis://localhost:6379/0'  # Replace with your Redis server URL
+app.config['CACHE_REDIS_URL'] = 'redis://localhost:6379/0'
 
 # Initialize the cache
 cache = Cache(app)
@@ -28,6 +24,8 @@ redis_client.set('total_requests', 0)
 redis_client.set('total_processing_time_key', 0)
 
 CACHE_HEADER = 'X-Cache'
+CACHE_HIT = 1
+CACHE_MISS = 0
 HTTP_200_OK = 200
 HTTP_400_BAD_REQUEST = 400
 HTTP_401_UNAUTHORIZED = 401
@@ -62,24 +60,25 @@ return {total_requests, total_processing_time}
 
 def update_statistics(response):
     """ Updates total requests number and total processing time"""
-    processing_time = int(response.headers.get('X-Runtime', 0))
+    processing_time = g.process_time
     total_requests, total_processing_time = redis_client.eval(LUA_SCRIPT_SET_KEYS, 2, 'total_requests',
                                                               'total_processing_time', 1, processing_time)
-    app.logger.info(f'Updated totals: {total_requests=}, {total_processing_time=}')
+    app.logger.info(f'Updated statistics: {total_requests=}, {total_processing_time=}')
 
 
 def update_similar_cache(current_request, response: Response):
-    if not response.headers[CACHE_HEADER]:
+    """Updates the cache for similar words search """
+    if not int(response.headers[CACHE_HEADER]):
         word = current_request.args.get('word', '').lower()
-        count = g.count
-        similar_words = response.json().get('similar', [])
+        similar_words = response.json.get('similar', [])
         similar_words.append(word)
-        cache.set(list(count.items()), similar_words, timeout=60)
-        app.logger.info(f'Updated cache for: {count}, {similar_words=}.')
+        cache.set(g.count_str, similar_words, timeout=180)
+        app.logger.info(f'Updated cache for: {g.count_str}, {similar_words=}.')
 
 
 @app.after_request
 def after_request_tasks(response):
+    """ Update Statistics and Cache """
     current_request = request
     if request.endpoint == 'find_similar_words':
         update_statistics(response)
@@ -88,53 +87,62 @@ def after_request_tasks(response):
     return response
 
 
-# TODO???
-def validate_request(f: Callable) -> Callable:
-    @functools.wraps(f)
-    def validate_request_headers_and_auth(*args, **kwargs):
-        """
-        function for HTTP requests to validate authentication and headers.
-        """
-        request_headers = request.headers
-        credentials = request.authorization
-        custom_header = request_headers.get('X-Custom')
+# # TODO???
+# import functools
+# from typing import List, Callable, Tuple
+# def validate_request(f: Callable) -> Callable:
+#     @functools.wraps(f)
+#     def validate_request_headers_and_auth(*args, **kwargs):
+#         """
+#         function for HTTP requests to validate authentication and headers.
+#         """
+#         request_headers = request.headers
+#         credentials = request.authorization
+#         custom_header = request_headers.get('X-Custom')
+#
+#         if credentials:
+#             return {'title': 'Authorization failed'}, HTTP_401_UNAUTHORIZED
+#
+#         return f(*args, **kwargs)
+#
+#     return validate_request_headers_and_auth
 
-        if credentials:
-            return {'title': 'Authorization failed'}, HTTP_401_UNAUTHORIZED
 
-        return f(*args, **kwargs)
+def get_similar_words(word: str) -> tuple[list[str], int]:
+    """Get similar words from the database, try get from cache if not present get from the db"""
+    g.count_str = ''.join(f'{letter}{count}' for letter, count in sorted(Counter(word).items()))
 
-    return validate_request_headers_and_auth
-
-
-def get_similar_words(word: str) -> List[str]:
-    perms = set(''.join(p) for p in itertools.permutations(word))
-    similar_words = sorted(w for w in perms if w in words_db and w != word)
-    return similar_words
+    if similar_words := cache.get(g.count_str):
+        similar_words.remove(word)
+        return similar_words, CACHE_HIT
+    else:
+        perms = set(''.join(p) for p in itertools.permutations(word))
+        similar_words = sorted(w for w in perms if w in words_db and w != word)
+        return similar_words, CACHE_MISS
 
 
 @app.route('/api/v1/similar', methods=['GET'])
 def find_similar_words() -> Response:
-
-    headers = {CACHE_HEADER: 0}
+    """ Returns similar words to the given word"""
+    headers = {}
     word = request.args.get('word', '').lower()
 
     if not word or not word.isalpha():
         return make_response(jsonify({"error": "Invalid word. Please provide a valid alphabetic word."}),
                              HTTP_400_BAD_REQUEST)
 
-    count = Counter(word)
-    if similar_words := cache.get(count):
-        similar_words.delete(word)
-        headers[CACHE_HEADER] = 1
-    else:
-        similar_words = get_similar_words(word)
-    similar_words = get_similar_words(word)
+    start_time = time.time()
+
+    similar_words, cache_val = get_similar_words(word)
+
+    headers[CACHE_HEADER] = cache_val
+    g.process_time = int((time.time() - start_time) * 1e9)
     return make_response(jsonify({"similar": similar_words}), HTTP_200_OK, headers)
 
 
 @app.route('/api/v1/stats', methods=['GET'])
 def get_stats() -> Response:
+    """ Returns statistics - total requests and average processing time"""
     total_requests, total_processing_time = redis_client.eval(LUA_SCRIPT_GET_KEYS, 2, 'total_requests',
                                                               'total_processing_time')
     avg_processing_time_ns = total_processing_time // total_requests if total_requests > 0 else 0
@@ -148,6 +156,7 @@ def get_stats() -> Response:
 
 @app.errorhandler(HTTP_404_NOT_FOUND)
 def not_found_error(error) -> Response:
+    """ Handles Not Found Errors """
     response_data = {'error': 'Endpoint not found',
                      'description': 'Available endpoints: `/api/v1/similar` `/api/v1/stats`'}
     return make_response(jsonify(response_data), HTTP_404_NOT_FOUND)
