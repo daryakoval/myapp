@@ -7,8 +7,9 @@ from flask_caching import Cache
 
 
 class WordsDatabase:
-    def __init__(self, path: str):
+    def __init__(self, path: str, logger):
         self.words_set = self._load_txt(path=path)
+        self.logger = logger
 
     def __len__(self):
         return len(self.words_set)
@@ -34,12 +35,11 @@ class WordsDatabase:
             similar_words = sorted(w for w in perms if w in self.words_set and w != word)
             return similar_words, CACHE_MISS
 
-    @staticmethod
-    def update_similar_cache(current_request: Request, response: Response, cache: Cache, logger):
+    def update_similar_cache(self, current_request: Request, response: Response, cache: Cache):
         """ Updates the cache for similar words search """
         if not int(response.headers[CACHE_HEADER]):
             word = current_request.args.get('word', '').lower()
             similar_words = response.json.get('similar', [])
             similar_words.append(word)
             cache.set(g.count_str, similar_words, timeout=180)
-            logger.info(f'Updated cache for: {g.count_str}, {similar_words=}.')
+            self.logger.info(f'Updated cache for: {g.count_str}, {similar_words=}.')

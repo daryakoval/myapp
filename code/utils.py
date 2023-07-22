@@ -10,10 +10,10 @@ def get_statistics(redis_client):
     return total_requests, avg_processing_time_ns
 
 
-def update_statistics(redis_client, app):
+def update_statistics(redis_client, logger):
     """ Updates total requests number and total processing time """
     processing_time = g.process_time
     total_requests, total_processing_time = redis_client.eval(LUA_SCRIPT_SET_KEYS, 2, 'total_requests',
                                                               'total_processing_time', 1, processing_time)
-    app.logger.info(f'Updated statistics: {total_requests=}, {total_processing_time=}')
+    logger.info(f'Updated statistics: {total_requests=}, {total_processing_time=}')
 

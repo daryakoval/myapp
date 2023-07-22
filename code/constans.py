@@ -1,6 +1,6 @@
 # ======== PATHS ========
-WORDS_CLEAN_PATH = 'words_clean.txt'
-
+WORDS_CLEAN_PATH = '../words_clean.txt'
+HOST = 'localhost'
 
 # ======== RETURN CODES ========
 HTTP_200_OK = 200

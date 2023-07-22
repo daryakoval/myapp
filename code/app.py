@@ -4,7 +4,7 @@ import time
 import redis
 import logging
 from constans import CACHE_HEADER, HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND, \
-    CACHE_TYPE, CACHE_REDIS_URL, REDIS_PORT, WORDS_CLEAN_PATH
+    CACHE_TYPE, CACHE_REDIS_URL, REDIS_PORT, WORDS_CLEAN_PATH, HOST
 from words_db import WordsDatabase
 from utils import update_statistics, get_statistics
 
@@ -13,12 +13,11 @@ app.logger.setLevel(logging.INFO)
 app.config['CACHE_TYPE'] = CACHE_TYPE
 app.config['CACHE_REDIS_URL'] = CACHE_REDIS_URL
 
-# TODO: maybe move to Words DB
 cache = Cache(app)
 
-words_database = WordsDatabase(path=WORDS_CLEAN_PATH)
+words_database = WordsDatabase(path=WORDS_CLEAN_PATH, logger=app.logger)
 
-redis_client = redis.StrictRedis(host='localhost', port=REDIS_PORT, db=0)
+redis_client = redis.StrictRedis(host=HOST, port=REDIS_PORT, db=0)
 redis_client.set('total_requests', 0)
 redis_client.set('total_processing_time_key', 0)
 
@@ -27,16 +26,17 @@ redis_client.set('total_processing_time_key', 0)
 def after_request_tasks(response):
     """ Update Statistics and Cache """
     current_request = request
-    if request.endpoint == 'find_similar_words':
-        update_statistics(redis_client=redis_client, app=app)
+    if request.endpoint == 'get_similar':
+        update_statistics(redis_client=redis_client, logger=app.logger)
         words_database.update_similar_cache(current_request=current_request, response=response,
-                                            cache=cache, logger=app.logger)
+                                            cache=cache)
 
     return response
 
 
 @app.route('/api/v1/similar', methods=['GET'])
-def find_similar_words() -> Response:
+@cache.memoize(timeout=60)
+def get_similar() -> Response:
     """ Returns similar words to the given word"""
     headers = {}
     word = request.args.get('word', '').lower()
@@ -45,6 +45,7 @@ def find_similar_words() -> Response:
         return make_response(jsonify({"error": "Invalid word. Please provide a valid alphabetic word."}),
                              HTTP_400_BAD_REQUEST)
 
+    # TODO: change
     start_time = time.time()
 
     similar_words, cache_val = words_database.get_similar_words(word, cache)
