@@ -8,11 +8,8 @@ HTTP_400_BAD_REQUEST = 400
 HTTP_401_UNAUTHORIZED = 401
 HTTP_404_NOT_FOUND = 404
 
-# ======== CACHE & REDIS RELATED ========
-CACHE_TYPE = 'redis'
+# ======== REDIS RELATED ========
 REDIS_PORT = 6379
-CACHE_REDIS_URL = f'redis://localhost:{REDIS_PORT}/0'
-
 LUA_SCRIPT_SET_KEYS = """
 local total_requests_key = KEYS[1]
 local total_processing_time_key = KEYS[2]

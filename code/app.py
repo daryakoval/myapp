@@ -1,19 +1,13 @@
 from flask import Flask, request, jsonify, make_response, Response, g
-from flask_caching import Cache
 import time
 import redis
 import logging
-from code.constans import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND, \
-    CACHE_TYPE, CACHE_REDIS_URL, REDIS_PORT, WORDS_CLEAN_PATH, HOST
+from code.constans import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND, REDIS_PORT, WORDS_CLEAN_PATH, HOST
 from code.words_db import WordsDatabase
 from code.utils import update_statistics, get_statistics
 
 app = Flask(__name__)
-app.logger.setLevel(logging.DEBUG)
-app.config['CACHE_TYPE'] = CACHE_TYPE
-app.config['CACHE_REDIS_URL'] = CACHE_REDIS_URL
-
-cache = Cache(app)
+app.logger.setLevel(logging.INFO)
 
 words_database = WordsDatabase(path=WORDS_CLEAN_PATH, logger=app.logger)
 
@@ -30,13 +24,12 @@ def before_request_tasks():
 
 @app.after_request
 def after_request_tasks(response):
-    """ Update Statistics and Cache """
+    """ Update Statistics """
     if request.endpoint == 'get_similar':
         update_statistics(redis_client=redis_client, logger=app.logger)
     return response
 
 
-@cache.memoize(timeout=60)
 @app.route('/api/v1/similar', methods=['GET'])
 def get_similar() -> Response:
     """ Returns similar words to the given word"""

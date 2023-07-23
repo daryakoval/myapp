@@ -1,6 +1,5 @@
 ## TODO:
 - unitests
-- Fix cache memoize # @cache.memoize(timeout=60)
 - change Entrypoint instead CMD (Dockerfile)
 - Docker check \code is working directory 
 - FROM python:3.11.4-bookworm
