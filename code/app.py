@@ -22,6 +22,12 @@ redis_client.set('total_requests', 0)
 redis_client.set('total_processing_time_key', 0)
 
 
+@app.before_request
+def before_request_tasks():
+    """ Setting the request start time """
+    g.start_time = time.time()
+
+
 @app.after_request
 def after_request_tasks(response):
     """ Update Statistics and Cache """
@@ -30,11 +36,10 @@ def after_request_tasks(response):
     return response
 
 
+@cache.memoize(timeout=60)
 @app.route('/api/v1/similar', methods=['GET'])
-# @cache.memoize(timeout=60)
 def get_similar() -> Response:
     """ Returns similar words to the given word"""
-    start_time = time.time()
     word = request.args.get('word', '').lower()
 
     if not word or not word.isalpha():
@@ -42,8 +47,6 @@ def get_similar() -> Response:
                              HTTP_400_BAD_REQUEST)
 
     similar_words = words_database.get_similar_words(word)
-
-    g.process_time = int((time.time() - start_time) * 1e9)
     return make_response(jsonify({"similar": similar_words}), HTTP_200_OK)
 
 
