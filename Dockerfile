@@ -5,7 +5,7 @@ FROM python:3.11
 RUN apt-get update && apt-get install -y redis-server
 
 # Set the working directory inside the container
-WORKDIR /app
+WORKDIR /code
 
 # Copy the files code into the container
 COPY . .
