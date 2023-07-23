@@ -95,14 +95,3 @@ When given the word "apple," the algorithm converts it to `a1e1l1p2` and queries
 
 This algorithm has a time complexity of O(MlogM), where N is the number of words in the dictionary, and M is the average word length. The space complexity is O(N) to store the hash map of words. By employing this approach, the service can efficiently identify similar words and deliver the desired results.
 
-## Error Handling and Logging
-
-The service logs all errors and relevant information to stdout/stderr. Error responses are returned with appropriate HTTP status codes and error messages in the response body.
-
-## CPU and Memory Optimization
-
-The algorithm used to find similar words is efficient in terms of CPU and memory usage. By using a hash map to group words with the same character frequency, the service reduces the need for exhaustive comparisons. Additionally, the service uses the Flask framework, which is lightweight and efficient for handling web requests.
-
-## Parallel Requests
-
-The service is designed to handle parallel requests efficiently. Since the process of finding similar words is not computationally intensive, multiple requests can be processed simultaneously without significant impact on performance.
