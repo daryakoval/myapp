@@ -1,19 +1,13 @@
-# Use the official Python image as the base image
-FROM python:3.11
+FROM python:3.11.4-bookworm
 
-# Install Redis server
 RUN apt-get update && apt-get install -y redis-server
 
-# Set the working directory inside the container
 WORKDIR /code
 
-# Copy the files code into the container
 COPY . .
 
-# Install dependencies
 RUN pip install -r requirements.txt
 
 EXPOSE 8000
 
-# Start Gunicorn to run the Flask application
-CMD ["bash", "start.sh"]
+ENTRYPOINT ["bash", "start.sh"]

@@ -71,9 +71,9 @@ Return general statistics about the program:
 **Response:**
 ```json
 {
-    "totalWords": 351075,
+    "avgProcessingTimeNs": 717295,
     "totalRequests": 9,
-    "avgProcessingTimeNs": 45239
+    "totalWords": 351075
 }
 ```
 
