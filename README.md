@@ -18,8 +18,8 @@ To run the "Similar Words API" service, follow the instructions below.
 1. Clone the Repository
 
 ```bash
-git clone <repository_url>
-cd <repository_name>
+git clone https://github.com/daryakoval/myapp.git
+cd myapp
 ```
 
 2. Build the Docker Image. You can build the Docker image using the provided Dockerfile.
@@ -71,26 +71,38 @@ Return general statistics about the program:
 **Response:**
 ```json
 {
-    "avgProcessingTimeNs": 717295,
-    "totalRequests": 9,
+    "avgProcessingTimeNs": 97427,
+    "totalRequests": 21000,
     "totalWords": 351075
 }
 ```
 
-## Algorithm for Finding Similar Words - TODO
+## Algorithm for Finding Similar Words
 
-To find similar words efficiently, the service uses a hash map to group words with the same set of characters. For each incoming word, the service calculates its character frequency and checks if a word with the same character frequency exists in the hash map. If so, it adds the word to the list of similar words.
+To efficiently find similar words, the service utilizes a hash map to group words with identical character sets. 
+When a requested word arrives, the service calculates its character frequency and checks if any words 
+with the same frequency already exist in the hash map. 
+If there is a match, the service retrieves the list of similar words, excluding the requested word, and returns the list.
 
-The time complexity of this algorithm is O(N * M), where N is the number of words in the dictionary, and M is the average word length. The space complexity is O(N) to store the hash map of words.
+For instance, consider a dictionary with the words ["appel", "pepla", "apple"]. The hash map representation would be:
+```json
+{
+  "a1e1l1p2": ["appel", "pepla", "apple"]
+}
+```
+
+When given the word "apple," the algorithm converts it to `a1e1l1p2` and queries the hash map to find similar words.
+
+This algorithm has a time complexity of O(MlogM), where N is the number of words in the dictionary, and M is the average word length. The space complexity is O(N) to store the hash map of words. By employing this approach, the service can efficiently identify similar words and deliver the desired results.
 
 ## Error Handling and Logging
 
 The service logs all errors and relevant information to stdout/stderr. Error responses are returned with appropriate HTTP status codes and error messages in the response body.
 
-## CPU and Memory Optimization - TODO
+## CPU and Memory Optimization
 
 The algorithm used to find similar words is efficient in terms of CPU and memory usage. By using a hash map to group words with the same character frequency, the service reduces the need for exhaustive comparisons. Additionally, the service uses the Flask framework, which is lightweight and efficient for handling web requests.
 
-## Parallel Requests - TODO
+## Parallel Requests
 
 The service is designed to handle parallel requests efficiently. Since the process of finding similar words is not computationally intensive, multiple requests can be processed simultaneously without significant impact on performance.

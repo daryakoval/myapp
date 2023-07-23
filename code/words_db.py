@@ -23,7 +23,7 @@ class WordsDatabase:
     def get_similar_words(self, word: str) -> List[str]:
         """Get similar words from the database"""
         count_str = ''.join(f'{letter}{count}' for letter, count in sorted(Counter(word).items()))
-        all_similar_words = self.words_db.get(count_str, [])
+        all_similar_words = self.words_db[count_str]
         self.logger.debug(f'Word: [{word}]. All similar words are {all_similar_words}.')
         similar_words = list(filter(lambda e: e != word, all_similar_words))
         return similar_words
